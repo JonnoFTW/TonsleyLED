@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">TonsleyLED</string>
+    <string name="hello_world">Hello world!</string>
+    <string name="action_send">Send</string>
+    <string name="action_load">Load</string>
+    <string name="action_save">Save</string>
+    <string name="button_clear">Clear</string>
+
+    <string name="dialog_save_board">Save Board</string>
+    <string name="dialog_load_board">Load Board</string>
+    <string name="dialog_cancel">Cancel</string>
+</resources>
