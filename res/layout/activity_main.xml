@@ -34,6 +34,12 @@
                 android:hint="y"
                 android:inputType="number" />
 
+            <Spinner
+                android:id="@+id/spinnerColour"
+                android:layout_width="wrap_content"
+                android:layout_height="fill_parent"
+                android:layout_weight="1" />
+
             <Button
                 android:id="@+id/button1"
                 android:layout_width="wrap_content"

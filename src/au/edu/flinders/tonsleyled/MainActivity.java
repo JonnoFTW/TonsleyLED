@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -15,7 +16,9 @@ import android.app.AlertDialog;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.SharedPreferences;
 import android.content.DialogInterface.OnClickListener;
+import android.content.Intent;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Canvas;
@@ -23,6 +26,7 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Paint.Style;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.text.InputFilter;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -31,12 +35,16 @@ import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup.LayoutParams;
+import android.widget.AdapterView;
+import android.widget.AdapterView.OnItemSelectedListener;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ListView;
+import android.widget.Spinner;
 import android.widget.Toast;
-import au.edu.flinders.tonsleyled.BoardReaderContract.FeedEntry;
+import au.edu.flinders.tonsleyled.BoardReaderContract.BoardEntry;
 
 public class MainActivity extends Activity {
 
@@ -47,7 +55,7 @@ public class MainActivity extends Activity {
 	private MainActivity mActivity;
 	private BoardView mBoardView;
 	private static final String TAG = MainActivity.class.getSimpleName();
-
+	private Spinner mSpinner;
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -73,8 +81,26 @@ public class MainActivity extends Activity {
 
 		mBoardView = new BoardView(this);
 
-		ll.addView(mBoardView, new LayoutParams(LayoutParams.FILL_PARENT,
-				LayoutParams.FILL_PARENT));
+		ll.addView(mBoardView, new LayoutParams(LayoutParams.MATCH_PARENT,
+				LayoutParams.MATCH_PARENT));
+		
+		mSpinner = (Spinner) findViewById(R.id.spinnerColour);
+		ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(this, R.array.colours_array, android.R.layout.simple_spinner_item);
+		adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+		mSpinner.setOnItemSelectedListener(new OnItemSelectedListener() {
+
+			@Override
+			public void onItemSelected(AdapterView<?> parent, View view,
+					int position, long id) {
+				// TODO Auto-generated method stub
+				mBoardView.invalidate();
+			}
+	
+			@Override
+			public void onNothingSelected(AdapterView<?> parent) {
+			}
+		});
+		mSpinner.setAdapter(adapter);
 		mActivity = this;
 	}
 
@@ -108,16 +134,29 @@ public class MainActivity extends Activity {
 		} else if (id == R.id.action_send) {
 			sendBoard();
 			return true;
+		} else if(id == R.id.action_settings) {
+			loadSettings();
+			return true;
 		}
 		return super.onOptionsItemSelected(item);
 	}
+	private void loadSettings() {
+		Intent i = new Intent(this,SettingsActivity.class);
+		startActivity(i);
+	}
 
+	private int getEtVal(EditText et) {
+		String text = et.getEditableText().toString();
+		if(text.isEmpty())
+			return 0;
+		return Integer.parseInt(text);
+	}
 	private int getX() {
-		return Integer.parseInt(mEditTextX.getEditableText().toString());
+		return getEtVal(mEditTextX);
 	}
 
 	private int getY() {
-		return Integer.parseInt(mEditTextY.getEditableText().toString());
+		return getEtVal(mEditTextY);
 	}
 
 	private void showToast(final String message) {
@@ -139,22 +178,33 @@ public class MainActivity extends Activity {
 
 			@Override
 			public void run() {
-
+				if(arraySum(mBoard)==0) {
+					showToast("Nothing to send!");
+					return;
+				}
+					
 				PrintWriter out;
 				try {
-					Socket sock = new Socket("ledsign", 12345);
-					out = new PrintWriter(sock.getOutputStream(), true);
+					int[][] smallestBoard = getSmallestBoard(mBoard);
+					//Log.i(TAG,"Sending: "+ArrayUtils.toString(smallestBoard));
 
 					StringBuilder sb = new StringBuilder();
-					sb.append("x=").append(getX()).append(",").append("y=")
-							.append(getY()).append("board=");
-					for (int i = 0; i < mBoard.length; i++) {
-						for (int j = 0; j < mBoard[i].length; j++) {
-							sb.append(mBoard[i][j] + ",");
-						}
-						sb.append("/");
+					sb.append("x=").append(getX()).append(",y=")
+							.append(getY()).append(",z=").append(getZ()).append(",board=");
+					
+					for (int i = 0; i < smallestBoard.length; i++) {
+						sb.append(StringUtils.join(smallestBoard[i],',')).append("-");
 					}
+					sb.deleteCharAt(sb.length()-1);
 					sb.append(".");
+					Log.i(TAG,"Sending: "+sb.toString());
+					SharedPreferences settings = PreferenceManager.getDefaultSharedPreferences(mActivity);
+					String host = settings.getString("hostname", "ledsign");
+					int port = Integer.valueOf(settings.getString("port", "12345"));
+					Log.i(TAG,"Connecting to: "+host+":"+port);
+					Socket sock = new Socket(host, port);
+					out = new PrintWriter(sock.getOutputStream(), true);
+					
 					out.write(sb.toString());
 					sock.close();
 					showToast("Sent successfully");
@@ -164,7 +214,60 @@ public class MainActivity extends Activity {
 				}
 
 			}
+			
 		})).start();
+	}
+	protected int getZ() {
+		return mSpinner.getSelectedItemPosition();
+	}
+
+	private static int[] arrayColumn(final int[][] arr, final int col) {
+		int[] column = new int[arr.length];
+		for (int i = 0; i < arr.length; i++) {
+			column[i] = arr[i][col];
+		}
+		return column;
+	}
+	private static int arraySum(int[][] board) {
+		int sum =0;
+		for (int[] is : board) {
+			for (int i : is) {
+				sum +=i;
+			}
+		}
+		return sum;
+	}
+	private static int[][] getSmallestBoard(int[][] mBoard) {
+		int maxX=0,minX=mBoard.length,maxY=0,minY=mBoard.length;
+		for (int i = 0; i < mBoard.length; i++) {
+			maxX = Math.max(maxX, lastNonZero(mBoard[i]));
+			minX = Math.min(minX, firstNonZero(mBoard[i]));
+			int[] column = arrayColumn(mBoard, i);
+			maxY = Math.max(maxY, lastNonZero(column));
+			minY = Math.min(minY, firstNonZero(column));
+			
+		}
+		System.out.printf("maxX=%d,maxY=%d,minX=%d,minY=%d%n",maxX,maxY,minX,minY);
+		int[][] out  = new int[maxY-minY+1][];
+		for(int i = 0;i < maxY-minY+1; i++ ) {
+			out[i] = Arrays.copyOfRange(mBoard[i+minY], minX, maxX+1);
+		}
+		return out;
+	}
+
+	private static int firstNonZero(int[] is) {
+		for (int i = 0; i < is.length; i++) {
+			if(is[i]!=0)
+				return i;
+		}
+		return is.length;
+	}
+	private static int lastNonZero(int[] is) {
+		for (int i = is.length-1; i > 0; i--) {
+			if(is[i]!=0)
+				return i;
+		}
+		return 0;
 	}
 
 	private void loadBoard() {
@@ -174,20 +277,25 @@ public class MainActivity extends Activity {
 	private void saveBoard() {
 		showSaveLoadDialog(true);
 	}
-
+	private static final String NEW_BOARD = "New board";
 	private String[] getBoardTitles(final boolean save) {
 		ArrayList<String> files = new ArrayList<String>();
 		BoardReaderDbHelper mDbHelper = new BoardReaderDbHelper(mActivity);
 		SQLiteDatabase db = mDbHelper.getReadableDatabase();
-		Cursor c = db.query(FeedEntry.TABLE_NAME,
-				new String[] { FeedEntry.COLUMN_NAME_TITLE }, null, null, null,
-				null, FeedEntry.COLUMN_NAME_TITLE + " DESC");
-		while (c.moveToNext()) {
-			c.moveToFirst();
-			files.add(getString(0));
+		Cursor c = db.query(
+				BoardEntry.TABLE_NAME,
+				new String[] { BoardEntry.COLUMN_NAME_TITLE },
+				null,
+				null, 
+				null,
+				null, 
+				BoardEntry.COLUMN_NAME_TITLE + " DESC");
+		Log.i(TAG,"Rows"+(c.getCount()));
+		while (c!= null && c.moveToNext()) {
+			files.add(c.getString(0));
 		}
 		if (save) {
-			files.add("New board");
+			files.add(NEW_BOARD);
 		}
 		return files.toArray(new String[files.size()]);
 	}
@@ -213,7 +321,7 @@ public class MainActivity extends Activity {
 						ListView lv = ((AlertDialog) dialog).getListView();
 						String fname = (String) lv.getAdapter().getItem(
 								lv.getCheckedItemPosition());
-						if (fname.equals("New File") && save) {
+						if (fname.equals(NEW_BOARD) && save) {
 							input.setVisibility(View.VISIBLE);
 						} else {
 							input.setVisibility(View.GONE);
@@ -236,7 +344,7 @@ public class MainActivity extends Activity {
 					return;
 				}
 				if (fname != null) {
-					if (fname.equals("New board")) {
+					if (fname.equals(NEW_BOARD)) {
 						fname = input.getText().toString();
 					}
 					if (save) {
@@ -254,14 +362,18 @@ public class MainActivity extends Activity {
 	protected void loadBoardFromDb(String fname) {
 		BoardReaderDbHelper mDbHelper = new BoardReaderDbHelper(mActivity);
 		SQLiteDatabase db = mDbHelper.getReadableDatabase();
-		Cursor c = db.query(FeedEntry.TABLE_NAME,
-				new String[] { FeedEntry.COLUMN_NAME_CONTENT },
-				FeedEntry.COLUMN_NAME_TITLE, new String[] { fname }, null,
-				null, FeedEntry.COLUMN_NAME_TITLE + " DESC");
+		Cursor c = db.query(BoardEntry.TABLE_NAME,
+				new String[] { BoardEntry.COLUMN_NAME_CONTENT },
+				BoardEntry.COLUMN_NAME_TITLE+" = ?", 
+				new String[] { fname },
+				null,
+				null, 
+				BoardEntry.COLUMN_NAME_TITLE + " DESC");
 		c.moveToFirst();
 		String boardString = c.getString(0);
 		try {
 			mBoard = deserializeBoard(boardString);
+			mBoardView.invalidate();
 			showToast("Loaded board " + fname);
 		} catch (JSONException e) {
 			showToast("Could not load board");
@@ -273,10 +385,10 @@ public class MainActivity extends Activity {
 		BoardReaderDbHelper mDbHelper = new BoardReaderDbHelper(mActivity);
 		SQLiteDatabase db = mDbHelper.getWritableDatabase();
 		ContentValues values = new ContentValues();
-		values.put(FeedEntry.COLUMN_NAME_TITLE, fname);
+		values.put(BoardEntry.COLUMN_NAME_TITLE, fname);
 		try {
-			values.put(FeedEntry.COLUMN_NAME_CONTENT, serializeBoard());
-			long rowId = db.insert(FeedEntry.TABLE_NAME, "null", values);
+			values.put(BoardEntry.COLUMN_NAME_CONTENT, serializeBoard());
+			long rowId = db.insert(BoardEntry.TABLE_NAME, "null", values);
 			showToast("Saved board " + fname);
 		} catch (JSONException e) {
 			showToast("Could not save board " + fname);
@@ -285,7 +397,7 @@ public class MainActivity extends Activity {
 
 	}
 
-	private int[][] deserializeBoard(String b) throws JSONException {
+	private static int[][] deserializeBoard(String b) throws JSONException {
 		JSONArray arr = new JSONArray(b);
 		int[][] out = new int[arr.length()][arr.getJSONArray(0).length()];
 		for (int i = 0; i < arr.length(); i++) {
@@ -348,9 +460,14 @@ public class MainActivity extends Activity {
 				}
 			});
 		}
-
+		private int[] colors = {
+				Color.parseColor("#F44336"),
+				Color.parseColor("#4CAF50"),
+				Color.parseColor("#2196F3")
+				};
 		@Override
 		protected void onDraw(Canvas canvas) {
+			int color = colors[mActivity.getZ()];
 			for (int x = 0; x < mBoard.length; x++) {
 				for (int y = 0; y < mBoard[x].length; y++) {
 					int cellWidth = getWidth()/mSize;
@@ -360,7 +477,8 @@ public class MainActivity extends Activity {
 					int right= left + cellWidth;
 					int bottom = top + cellHeight;
 					if (mBoard[x][y] == 1) {
-						mPaint.setColor(Color.BLACK);
+						
+						mPaint.setColor(color);
 						mPaint.setStyle(Style.FILL);
 						canvas.drawRect(left, top, right, bottom, mPaint);
 						/*canvas.drawRect(
