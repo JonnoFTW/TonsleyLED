@@ -7,9 +7,15 @@
 
     <!-- Example General settings -->
     <string name="pref_header_general">General</string>
-     <string name="pref_header_connection">Connection</string>
-     <string name="pref_hostname">Hostname</string>
-     <string name="pref_port">Port</string>
-<string name="pref_default_hostname">10.0.0.1</string>
-<string name="pref_default_port">1234</string>
+    <string name="pref_header_connection">Connection</string>
+    <string name="pref_header_game">Game</string>
+    <string name="pref_hostname">Hostname</string>
+    <string name="pref_port">Port</string>
+    <string name="pref_default_hostname">10.0.0.1</string>
+    <string name="pref_default_port">1234</string>
+    <string name="pref_default_born">3</string>
+    <string name="pref_default_stays">23</string>
+    <string name="pref_born">Born</string>
+    <string name="pref_stays">Stays</string>
+
 </resources>

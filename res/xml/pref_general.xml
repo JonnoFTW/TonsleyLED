@@ -23,4 +23,27 @@
             android:title="@string/pref_port" />
     </PreferenceCategory>
 
+    <PreferenceCategory android:title="@string/pref_header_game" >
+
+        <!-- NOTE: EditTextPreference's summary should be set to its value by the activity code. -->
+        <EditTextPreference
+            android:defaultValue="@string/pref_default_born"
+            android:inputType="number"
+            android:key="born"
+            android:maxLines="1"
+            android:selectAllOnFocus="true"
+            android:singleLine="true"
+            android:title="@string/pref_born" />
+
+        <!-- NOTE: EditTextPreference's summary should be set to its value by the activity code. -->
+        <EditTextPreference
+            android:defaultValue="@string/pref_default_stays"
+            android:inputType="number"
+            android:key="stays"
+            android:maxLines="1"
+            android:selectAllOnFocus="true"
+            android:singleLine="true"
+            android:title="@string/pref_stays" />
+    </PreferenceCategory>
+    
 </PreferenceScreen>

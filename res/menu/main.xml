@@ -1,27 +1,30 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     tools:context="au.edu.flinders.tonsleyled.MainActivity" >
-    <item android:id="@+id/action_settings"
+
+    <item
+        android:id="@+id/action_settings"
         android:icon="@drawable/ic_action_save"
         android:orderInCategory="100"
-        android:showAsAction="collapseActionView"
-        android:title="@string/action_settings"
-        />
-       <item
-           
+        android:showAsAction="ifRoom|collapseActionView"
+        android:title="@string/action_settings"/>
+    <item
+        android:id="@+id/action_play"
+        android:icon="@drawable/ic_action_play"
+        android:showAsAction="ifRoom|collapseActionView"
+        android:title="@string/action_play"/>
+    <item
         android:id="@+id/action_save"
         android:icon="@drawable/ic_action_save"
         android:orderInCategory="100"
-        android:showAsAction="collapseActionView"
+        android:showAsAction="ifRoom|collapseActionView"
         android:title="@string/action_save"/>
-    
     <item
         android:id="@+id/action_load"
         android:icon="@drawable/ic_action_upload"
         android:orderInCategory="100"
-        android:showAsAction="always|withText"
+        android:showAsAction="ifRoom|collapseActionView"
         android:title="@string/action_load"/>
-    
     <item
         android:id="@+id/action_send"
         android:icon="@drawable/ic_action_send_now"

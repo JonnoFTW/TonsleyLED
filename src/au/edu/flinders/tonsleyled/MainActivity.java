@@ -92,7 +92,6 @@ public class MainActivity extends Activity {
 			@Override
 			public void onItemSelected(AdapterView<?> parent, View view,
 					int position, long id) {
-				// TODO Auto-generated method stub
 				mBoardView.invalidate();
 			}
 	
@@ -116,9 +115,9 @@ public class MainActivity extends Activity {
 	public boolean onCreateOptionsMenu(Menu menu) {
 		// Inflate the menu; this adds items to the action bar if it is present.
 		getMenuInflater().inflate(R.menu.main, menu);
+		mMenu = menu;
 		return true;
 	}
-
 	@Override
 	public boolean onOptionsItemSelected(MenuItem item) {
 		// Handle action bar item clicks here. The action bar will
@@ -127,6 +126,9 @@ public class MainActivity extends Activity {
 		int id = item.getItemId();
 		if (id == R.id.action_save) {
 			saveBoard();
+			return true;
+		} else if (id == R.id.action_play) {
+			play();
 			return true;
 		} else if (id == R.id.action_load) {
 			loadBoard();
@@ -140,6 +142,140 @@ public class MainActivity extends Activity {
 		}
 		return super.onOptionsItemSelected(item);
 	}
+	private class GameRunnable implements Runnable {
+		
+		private boolean running = true;
+		private void finish() {
+			running = false;
+		}
+		@Override
+		public void run() {
+			SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(mActivity);
+			ArrayList<Integer> born = new ArrayList<Integer>(2);
+			String bornString = prefs.getString("born", "3");
+			for (int i = 0; i < bornString.length(); i++) {
+				born.add(Integer.valueOf(bornString.charAt(i)-48));
+			} 
+			ArrayList<Integer> stays = new ArrayList<Integer>(2);
+			String staysString = prefs.getString("stays", "23");
+			for (int i = 0; i < staysString.length(); i++) {
+				stays.add(Integer.valueOf(staysString.charAt(i)-48));
+			} 
+			Log.i(TAG,"Born:"+StringUtils.join(born,","));
+			Log.i(TAG,"Stays:"+StringUtils.join(stays,","));
+			while(running) {
+				try {
+					int [][] newCells = new int[mSize][mSize];
+					int totalSum = 0;
+					// The array should wrap around so that mBoard[1000][1001] refers to the top right cell
+					for (int i = 0; i < mBoard.length; i++) {
+						for (int j = 0; j < mBoard[i].length; j++) {
+							
+							int ip = (((i+1)%mBoard.length)+mBoard.length)%mBoard.length;
+							int im = (((i-1)%mBoard.length)+mBoard.length)%mBoard.length;
+							int jp = (((j+1)%mBoard[i].length)+mBoard[i].length)%mBoard[i].length;
+							int jm = (((j-1)%mBoard[i].length)+mBoard[i].length)%mBoard[i].length;
+							
+							int[] neighbours = {
+								mBoard[im][j],
+								mBoard[ip][j],
+								mBoard[i][jp],
+								mBoard[i][jm],
+								mBoard[ip][jp],
+								mBoard[ip][jm],
+								mBoard[im][jp],
+								mBoard[im][jm]
+							};
+							//System.out.println(Arrays.toString(neighbours));
+							int sum = 0;
+							for(int b: neighbours) {
+								sum += b==0?0:1;
+							}
+							totalSum += sum;
+							if(mBoard[i][j] == 1){
+								// Dealing with live cells
+								newCells[i][j] = stays.contains(sum)?1:0;
+							} else {
+								newCells[i][j] = born.contains(sum)?1:0;
+							}
+						}
+					}
+					boolean stopped = true;
+					for (int i = 0; i < newCells.length; i++) {
+						stopped &= Arrays.equals(newCells[i], mBoard[i]);
+					}
+					if(totalSum == 0 || stopped) {
+						Log.i(TAG,"All cells are dead or game has stabilised , stopping!");
+						stopGame();
+						playing = false;
+					}
+					mBoard = newCells;
+					runOnUiThread(new Runnable() {
+						public void run() {
+							mBoardView.invalidate();
+						}
+					});
+					
+					Thread.sleep(100);
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+		}
+		
+	}
+	
+	private void stopGame() {
+		if(playRunnable != null) {
+			playRunnable.finish();
+		}
+		runOnUiThread(new Runnable() {
+			
+			@Override
+			public void run() {
+				mMenu.findItem(R.id.action_play).setTitle("Start");
+				mMenu.findItem(R.id.action_play).setIcon(R.drawable.ic_action_play);
+			}
+		});
+		
+	}
+	private Menu mMenu;
+	private boolean playing = false;
+	private GameRunnable playRunnable = null;
+	private void play() {
+		if(playing) {
+			playing = false;
+			stopGame();
+			
+		} else {
+			startGame();
+		}
+	}
+	@Override
+	protected void onResume() {
+		super.onResume();
+		if(playing) {
+			startGame();
+		} 
+	}
+	@Override
+	protected void onPause() {
+		super.onPause();
+		if(playing) {
+			stopGame();
+		}
+	}
+	private void startGame() {
+		if(playRunnable != null)
+			playRunnable.finish();
+		playing = true;
+		playRunnable = new GameRunnable();
+		(new Thread(playRunnable)).start();
+		mMenu.findItem(R.id.action_play).setTitle("Stop");
+		mMenu.findItem(R.id.action_play).setIcon(R.drawable.ic_action_stop);
+	}
+
 	private void loadSettings() {
 		Intent i = new Intent(this,SettingsActivity.class);
 		startActivity(i);
@@ -463,7 +599,8 @@ public class MainActivity extends Activity {
 		private int[] colors = {
 				Color.parseColor("#F44336"),
 				Color.parseColor("#4CAF50"),
-				Color.parseColor("#2196F3")
+				Color.parseColor("#2196F3"),
+				Color.parseColor("#607D8B")
 				};
 		@Override
 		protected void onDraw(Canvas canvas) {
@@ -489,7 +626,7 @@ public class MainActivity extends Activity {
 								mPaint);*/
 					}
 					mPaint.setStyle(Style.STROKE);
-					mPaint.setColor(Color.GRAY);
+					mPaint.setColor(colors[3]);
 					canvas.drawRect(left, top, right, bottom, mPaint);
 					/*
 					canvas.drawRect(
