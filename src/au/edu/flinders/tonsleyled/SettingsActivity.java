@@ -70,6 +70,7 @@ public class SettingsActivity extends PreferenceActivity {
 		bindPreferenceSummaryToValue(findPreference("port"));
 		bindPreferenceSummaryToValue(findPreference("born"));
 		bindPreferenceSummaryToValue(findPreference("stays"));
+		bindPreferenceSummaryToValue(findPreference("states"));
 	}
 
 	/** {@inheritDoc} */
@@ -166,6 +167,7 @@ public class SettingsActivity extends PreferenceActivity {
 			bindPreferenceSummaryToValue(findPreference("port"));
 			bindPreferenceSummaryToValue(findPreference("born"));
 			bindPreferenceSummaryToValue(findPreference("stays"));
+			bindPreferenceSummaryToValue(findPreference("states"));
 		}
 	}
 

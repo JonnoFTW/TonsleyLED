@@ -44,6 +44,14 @@
             android:selectAllOnFocus="true"
             android:singleLine="true"
             android:title="@string/pref_stays" />
+           <EditTextPreference
+            android:defaultValue="@string/pref_default_states"
+            android:inputType="number"
+            android:key="states"
+            android:maxLines="1"
+            android:selectAllOnFocus="true"
+            android:singleLine="true"
+            android:title="@string/pref_states" />
     </PreferenceCategory>
     
 </PreferenceScreen>

@@ -15,7 +15,9 @@
     <string name="pref_default_port">1234</string>
     <string name="pref_default_born">3</string>
     <string name="pref_default_stays">23</string>
+    <string name="pref_default_states">2</string>
     <string name="pref_born">Born</string>
     <string name="pref_stays">Stays</string>
+     <string name="pref_states">States</string>
 
 </resources>

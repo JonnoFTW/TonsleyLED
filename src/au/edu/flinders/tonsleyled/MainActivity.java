@@ -5,8 +5,8 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedList;
 
-import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -19,6 +19,7 @@ import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.content.DialogInterface.OnClickListener;
 import android.content.Intent;
+import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Canvas;
@@ -56,10 +57,14 @@ public class MainActivity extends Activity {
 	private BoardView mBoardView;
 	private static final String TAG = MainActivity.class.getSimpleName();
 	private Spinner mSpinner;
+	private SharedPreferences mPrefs;
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
-		clearBoard();
+		mActivity = this;
+		
+		mPrefs = PreferenceManager.getDefaultSharedPreferences(mActivity);
+		
 		setContentView(R.layout.activity_main);
 		mEditTextX = (EditText) findViewById(R.id.editTextX);
 		mEditTextY = (EditText) findViewById(R.id.editTextY);
@@ -80,7 +85,7 @@ public class MainActivity extends Activity {
 		LinearLayout ll = (LinearLayout) findViewById(R.id.mainView);
 
 		mBoardView = new BoardView(this);
-
+		mBoardView.invalidate();
 		ll.addView(mBoardView, new LayoutParams(LayoutParams.MATCH_PARENT,
 				LayoutParams.MATCH_PARENT));
 		
@@ -100,15 +105,32 @@ public class MainActivity extends Activity {
 			}
 		});
 		mSpinner.setAdapter(adapter);
-		mActivity = this;
+		
+		
+		
+		mPrefs.registerOnSharedPreferenceChangeListener(new OnSharedPreferenceChangeListener() {
+			
+			@Override
+			public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
+				if(key.equals("states")) {
+					int states = Integer.parseInt(sharedPreferences.getString("states", "2"));
+					mBoardView.updateQStateColors(states);
+					clearBoard();
+					
+				}
+			}
+		});
+		clearBoard();
 	}
 
 	protected void clearBoard() {
 		for (int i = 0; i < mBoard.length; i++) {
-			for (int j = 0; j < mBoard[i].length; j++) {
-				mBoard[i][j] = 0;
-			}
+			Arrays.fill(mBoard[i], 0);
 		}
+		//for (int i = 0; i < mBoardView.getStates(); i++) {
+		//	mBoard[0][i] = i;
+		//}
+		mBoardView.invalidate();
 	}
 
 	@Override
@@ -150,19 +172,22 @@ public class MainActivity extends Activity {
 		}
 		@Override
 		public void run() {
-			SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(mActivity);
+			int states = Integer.valueOf(mPrefs.getString("states", "2"));
+			mBoardView.updateQStateColors(states);
+			int k1 = 10,k2=11,k3=11,k4=11;
 			ArrayList<Integer> born = new ArrayList<Integer>(2);
-			String bornString = prefs.getString("born", "3");
+			String bornString = mPrefs.getString("born", "3");
 			for (int i = 0; i < bornString.length(); i++) {
 				born.add(Integer.valueOf(bornString.charAt(i)-48));
 			} 
 			ArrayList<Integer> stays = new ArrayList<Integer>(2);
-			String staysString = prefs.getString("stays", "23");
+			String staysString = mPrefs.getString("stays", "23");
 			for (int i = 0; i < staysString.length(); i++) {
 				stays.add(Integer.valueOf(staysString.charAt(i)-48));
 			} 
 			Log.i(TAG,"Born:"+StringUtils.join(born,","));
 			Log.i(TAG,"Stays:"+StringUtils.join(stays,","));
+			Log.i(TAG,"States:"+states);
 			while(running) {
 				try {
 					int [][] newCells = new int[mSize][mSize];
@@ -177,33 +202,48 @@ public class MainActivity extends Activity {
 							int jm = (((j-1)%mBoard[i].length)+mBoard[i].length)%mBoard[i].length;
 							
 							int[] neighbours = {
-								mBoard[im][j],
-								mBoard[ip][j],
-								mBoard[i][jp],
-								mBoard[i][jm],
+								mBoard[im][j ],
+								mBoard[ip][j ],
+								mBoard[i ][jp],
+								mBoard[i ][jm],
 								mBoard[ip][jp],
 								mBoard[ip][jm],
 								mBoard[im][jp],
 								mBoard[im][jm]
 							};
-							//System.out.println(Arrays.toString(neighbours));
 							int sum = 0;
 							for(int b: neighbours) {
-								sum += b==0?0:1;
+								sum += b;
 							}
 							totalSum += sum;
-							if(mBoard[i][j] == 1){
-								// Dealing with live cells
-								newCells[i][j] = stays.contains(sum)?1:0;
+							if(states ==0) {
+								if(mBoard[i][j] == 1){
+									// Dealing with live cells
+									newCells[i][j] = stays.contains(sum)?1:0;
+								} else {
+									newCells[i][j] = born.contains(sum)?1:0;
+								}
 							} else {
-								newCells[i][j] = born.contains(sum)?1:0;
+								int s = mBoard[i][j];
+								//sum += 8;
+								states--;
+								if(s > states/2 ) {
+									if((k1 <= sum && sum <= k2) && s < states) {
+										newCells[i][j] = mBoard[i][j]+1;
+									} else if(s > 0){
+										newCells[i][j] =  mBoard[i][j]-1;
+									}
+								} else {
+									if((k3 <= sum && sum <= k4) && s < states) {
+										newCells[i][j] = mBoard[i][j]+1;
+									} else if(s > 0) {
+										newCells[i][j] = mBoard[i][j]-1;
+									}
+								}
 							}
 						}
 					}
-					boolean stopped = true;
-					for (int i = 0; i < newCells.length; i++) {
-						stopped &= Arrays.equals(newCells[i], mBoard[i]);
-					}
+					boolean stopped = Arrays.deepEquals(newCells, mBoard);
 					if(totalSum == 0 || stopped) {
 						Log.i(TAG,"All cells are dead or game has stabilised , stopping!");
 						stopGame();
@@ -306,8 +346,9 @@ public class MainActivity extends Activity {
 	}
 
 	/**
-	 * Board is sent in the format: x=1,y=2,board=0,1,1,0,/ 0,1,1,1,/ 0,1,1,1,/
-	 * .
+	 * Board is sent in the format: x=1,y=2,z=1,board=0,1,1,0/ 0,1,1,1/ 0,1,1,1.
+	 * z is the game that your board will be sent to and should be a unique color
+	 * on the board
 	 */
 	private void sendBoard() {
 		(new Thread(new Runnable() {
@@ -318,7 +359,6 @@ public class MainActivity extends Activity {
 					showToast("Nothing to send!");
 					return;
 				}
-					
 				PrintWriter out;
 				try {
 					int[][] smallestBoard = getSmallestBoard(mBoard);
@@ -340,7 +380,6 @@ public class MainActivity extends Activity {
 					Log.i(TAG,"Connecting to: "+host+":"+port);
 					Socket sock = new Socket(host, port);
 					out = new PrintWriter(sock.getOutputStream(), true);
-					
 					out.write(sb.toString());
 					sock.close();
 					showToast("Sent successfully");
@@ -381,7 +420,6 @@ public class MainActivity extends Activity {
 			int[] column = arrayColumn(mBoard, i);
 			maxY = Math.max(maxY, lastNonZero(column));
 			minY = Math.min(minY, firstNonZero(column));
-			
 		}
 		System.out.printf("maxX=%d,maxY=%d,minX=%d,minY=%d%n",maxX,maxY,minX,minY);
 		int[][] out  = new int[maxY-minY+1][];
@@ -521,11 +559,19 @@ public class MainActivity extends Activity {
 		BoardReaderDbHelper mDbHelper = new BoardReaderDbHelper(mActivity);
 		SQLiteDatabase db = mDbHelper.getWritableDatabase();
 		ContentValues values = new ContentValues();
+		if(fname.trim().isEmpty()) {
+			showToast("Board with empty name not saved");
+			return;
+		}
 		values.put(BoardEntry.COLUMN_NAME_TITLE, fname);
 		try {
 			values.put(BoardEntry.COLUMN_NAME_CONTENT, serializeBoard());
 			long rowId = db.insert(BoardEntry.TABLE_NAME, "null", values);
-			showToast("Saved board " + fname);
+			if(rowId == -1) {
+				showToast("Error saving board!");
+			} else {
+				showToast("Saved board " + fname);
+			}
 		} catch (JSONException e) {
 			showToast("Could not save board " + fname);
 			e.printStackTrace();
@@ -575,6 +621,9 @@ public class MainActivity extends Activity {
 			super(context, attrs, defStyle);
 			initView(context, attrs);
 		}
+		public int getStates() {
+			return qStateColors.length-1;
+		}
 
 		private void initView(Context context, AttributeSet attrs) {
 			mPaint.setStyle(Paint.Style.FILL_AND_STROKE);
@@ -585,7 +634,11 @@ public class MainActivity extends Activity {
 					if (e.getAction() == MotionEvent.ACTION_DOWN) {
 						int x = (int) (e.getX() / (getWidth() / mSize));
 						int y = (int) (e.getY() / (getHeight() / mSize));
-						mBoard[x][y] = (~mBoard[x][y] & 1);
+						//mBoard[x][y] = (~mBoard[x][y] & 1);
+						mBoard[x][y] = (mBoard[x][y]+1);
+						if(mBoard[x][y] == getStates()){
+							mBoard[x][y]=0;
+						}
 						Log.i(BTAG, "Marking cell at: x=" + x + " y=" + y
 								+ " as " + mBoard[x][y]);
 						invalidate();
@@ -595,7 +648,41 @@ public class MainActivity extends Activity {
 
 				}
 			});
+			updateQStateColors(Integer.parseInt(mPrefs.getString("states", "2")));
 		}
+		public void updateQStateColors(int states) {
+			states = Math.min(12,Math.max(2,states));
+			qStateColors = new int[states+1];
+			
+			LinkedList<Integer> colsList = new LinkedList<Integer>(Arrays.asList(
+					Color.parseColor("#2196F3"),
+					Color.parseColor("#3F51B5"),
+					Color.parseColor("#009688"),
+					Color.parseColor("#4CAF50"),
+					Color.parseColor("#00BCD4"),
+					Color.parseColor("#8BC34A"),
+					Color.parseColor("#CDDC39"),
+					Color.parseColor("#FF9800"),
+					Color.parseColor("#FFEB3B"),
+					Color.parseColor("#FFC107"),
+					Color.parseColor("#FF5722"),
+					Color.parseColor("#795548")
+					));
+			// color[0] is empty, since state 0 = dead
+			for (int i = 1; i < qStateColors.length; i++) {
+				int pos = colsList.size()/2;
+				qStateColors[i] = colsList.get(pos);
+				colsList.remove(pos);
+			}
+			qStateColors[0] =Color.BLACK;
+			Arrays.sort(qStateColors);
+			StringBuilder cols = new StringBuilder();
+			for (int i : qStateColors) {
+				cols.append('#').append(Integer.toHexString(i)).append(' ');
+			}
+			Log.i(TAG,"States: "+states+", Colors are: "+cols.toString());
+		}
+		private int[] qStateColors;
 		private int[] colors = {
 				Color.parseColor("#F44336"),
 				Color.parseColor("#4CAF50"),
@@ -609,32 +696,22 @@ public class MainActivity extends Activity {
 				for (int y = 0; y < mBoard[x].length; y++) {
 					int cellWidth = getWidth()/mSize;
 					int cellHeight= getHeight()/mSize;
-					int left = x*cellWidth;
-					int top = y*cellHeight;
-					int right= left + cellWidth;
-					int bottom = top + cellHeight;
-					if (mBoard[x][y] == 1) {
-						
-						mPaint.setColor(color);
+					int left   = x*cellWidth;
+					int top    = y*cellHeight;
+					int right  = left + cellWidth;
+					int bottom = top  + cellHeight;
+					if (mBoard[x][y] != 0 || (getStates() > 2 && mBoard[x][y] != 0) ) {
+						if(qStateColors.length > 3) {
+							mPaint.setColor(qStateColors[mBoard[x][y]]+1);
+						} else {
+							mPaint.setColor(color);
+						}
 						mPaint.setStyle(Style.FILL);
 						canvas.drawRect(left, top, right, bottom, mPaint);
-						/*canvas.drawRect(
-								x * (getWidth() / mSize),
-								y* (getHeight() / mSize),
-								getWidth() / mSize,
-								getWidth() / mSize,
-								mPaint);*/
 					}
 					mPaint.setStyle(Style.STROKE);
 					mPaint.setColor(colors[3]);
 					canvas.drawRect(left, top, right, bottom, mPaint);
-					/*
-					canvas.drawRect(
-							x * (getWidth() / mSize),
-							y* (getHeight() / mSize), 
-							getWidth() / mSize,
-							getWidth() / mSize, 
-							mPaint);*/
 				}
 			}
 		}
