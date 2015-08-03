@@ -365,8 +365,9 @@ public class MainActivity extends Activity {
 					//Log.i(TAG,"Sending: "+ArrayUtils.toString(smallestBoard));
 
 					StringBuilder sb = new StringBuilder();
-					sb.append("x=").append(getX()).append(",y=")
-							.append(getY()).append(",z=").append(getZ()).append(",board=");
+					sb.append(getX()).append("\n")
+					  .append(getY()).append("\n")
+					  .append(getZ()).append("\n");
 					
 					for (int i = 0; i < smallestBoard.length; i++) {
 						sb.append(StringUtils.join(smallestBoard[i],',')).append("-");
